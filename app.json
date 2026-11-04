@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "MAD Closet",
@@ -10,6 +11,10 @@
       "package": "com.madcloset.app",
       "versionCode": 2
     },
-    "plugins": []
+    "plugins": [],
+    "extra": {
+      "supabaseUrl": "https://ulkqtgozkiatuofanoeg.supabase.co",
+      "supabaseAnonKey": "sb_publishable_TeSY54HO_7lNhIKAi6rnRw_9-0J2SAk"
+    }
   }
 }
