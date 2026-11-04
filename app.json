@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "MAD",
+    "slug": "mad-fashion",
+    "scheme": "madfashion",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#FFEDF7",
+    "newArchEnabled": true,
+    "android": {
+      "package": "com.madfashion.app",
+      "versionCode": 1,
+      "permissions": ["CAMERA"]
+    },
+    "ios": {
+      "bundleIdentifier": "com.madfashion.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "O MAD usa a câmera somente quando você escolhe fotografar um look.",
+        "NSPhotoLibraryUsageDescription": "O MAD permite escolher fotos para publicar seus looks."
+      }
+    },
+    "plugins": [
+      ["expo-image-picker", {
+        "photosPermission": "Permita escolher fotos para publicar seus looks no MAD.",
+        "cameraPermission": "Permita usar a câmera para fotografar seu look.",
+        "microphonePermission": false
+      }]
+    ],
+    "experiments": { "tsconfigPaths": true }
+  }
+}
