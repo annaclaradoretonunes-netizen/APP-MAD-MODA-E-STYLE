@@ -1,7 +1,7 @@
 name: MAD Android APK 1.0 (teste)
 on:
   push:
-    branches: [main]
+    branches: [main, feature/mad-v1-starter]
   workflow_dispatch:
 jobs:
   apk:
@@ -22,6 +22,8 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npx expo install --fix --npm
+      - name: TypeScript check
+        run: npx tsc --noEmit
       - name: Generate Android native project
         env:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
