@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "MAD Closet",
+    "slug": "mad-closet",
+    "scheme": "madcloset",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "com.madcloset.app",
+      "versionCode": 2
+    },
+    "plugins": []
+  }
+}
