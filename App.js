@@ -13,7 +13,7 @@ export default function App(){
  const [authScreen,setAuthScreen]=useState('welcome'),[email,setEmail]=useState(''),[password,setPassword]=useState('');
  const [selected,setSelected]=useState([]),[preferences,setPreferences]=useState([]),[prefLoading,setPrefLoading]=useState(true),[editing,setEditing]=useState(false);
  const [tab,setTab]=useState('Início'),[category,setCategory]=useState('Todos'),[query,setQuery]=useState('');
- const [dbLooks,setDbLooks]=useState([]),[feedLoading,setFeedLoading]=useState(false),[saved,setSaved]=useState([]);
+ const [dbLooks,setDbLooks]=useState([]),[feedLoading,setFeedLoading]=useState(false),[saved,setSaved]=useState([]),[savedLoading,setSavedLoading]=useState(false);
 
  useEffect(()=>{
   if(!supabase){setBoot(false);return;}
@@ -51,6 +51,20 @@ export default function App(){
   return ()=>{active=false;};
  },[session?.user?.id,preferences.length]);
 
+ useEffect(()=>{
+  if(!session?.user?.id||!supabase){setSaved([]);return;}
+  let active=true;
+  setSavedLoading(true);
+  supabase.from('saved_looks').select('look_id').eq('user_id',session.user.id)
+   .then(({data,error})=>{
+    if(!active)return;
+    if(error){console.warn('Não foi possível carregar favoritos:',error.message);setSaved([]);}
+    else setSaved((data||[]).map(row=>row.look_id));
+    setSavedLoading(false);
+   });
+  return ()=>{active=false;};
+ },[session?.user?.id]);
+
  async function authenticate(){
   if(!supabase)return Alert.alert('Configuração','Supabase indisponível.');
   if(!email.trim()||password.length<6)return Alert.alert('Confira seus dados','Digite seu e-mail e uma senha de pelo menos 6 caracteres.');
@@ -82,11 +96,23 @@ export default function App(){
  const toggleStyle=name=>setSelected(old=>old.includes(name)?old.filter(x=>x!==name):[...old,name]);
  const catalog=dbLooks.length?dbLooks:samples;
  const visible=useMemo(()=>catalog.filter(x=>(category==='Todos'||x.style===category)&&(!query||((x.title||'')+' '+x.style+' '+(x.pieces||[]).join(' ')).toLowerCase().includes(query.toLowerCase()))).sort((a,b)=>Number(preferences.includes(b.style))-Number(preferences.includes(a.style))),[catalog,category,query,preferences]);
- const toggleSaved=id=>setSaved(old=>old.includes(id)?old.filter(x=>x!==id):[...old,id]);
+ async function toggleSaved(id){
+  if(!supabase||!session?.user?.id)return;
+  const wasSaved=saved.includes(id);
+  setSaved(old=>wasSaved?old.filter(x=>x!==id):[...old,id]);
+  const query=supabase.from('saved_looks');
+  const {error}=wasSaved
+   ?await query.delete().eq('user_id',session.user.id).eq('look_id',id)
+   :await query.insert({user_id:session.user.id,look_id:id});
+  if(error){
+   setSaved(old=>wasSaved?[...new Set([...old,id])]:old.filter(x=>x!==id));
+   notify(error);
+  }
+ }
  const card=item=><View key={item.id} style={s.card}>
   {item.photo?<Image source={{uri:item.photo}} style={s.photo} resizeMode="contain"/>:<View style={[s.photo,s.emptyPhoto]}><Text style={s.placeholder}>Fotografia do look completo\n{item.title}\n\nImagem ainda não cadastrada</Text></View>}
   <View style={s.cardBody}><Text style={s.kicker}>{(item.style||'ESTILO').toUpperCase()}</Text><Text style={s.cardTitle}>{item.title}</Text><Text style={s.smallTitle}>PEÇAS DO LOOK</Text>{(item.pieces||[]).map((piece,i)=><Text key={i} style={s.piece}>• {piece}</Text>)}
-  <TouchableOpacity style={s.save} onPress={()=>toggleSaved(item.id)}><Text style={s.saveText}>{saved.includes(item.id)?'♥ Salvo nesta sessão':'♡ Salvar inspiração'}</Text></TouchableOpacity></View>
+  <TouchableOpacity style={s.save} onPress={()=>toggleSaved(item.id)}><Text style={s.saveText}>{saved.includes(item.id)?'♥ Salvo':'♡ Salvar inspiração'}</Text></TouchableOpacity></View>
  </View>;
 
  if(boot||session&&prefLoading)return <SafeAreaView style={s.root}><ActivityIndicator style={{marginTop:100}} color={DARK}/></SafeAreaView>;
@@ -120,7 +146,7 @@ export default function App(){
     {feedLoading&&<ActivityIndicator color={DARK}/>}
     {dbLooks.length===0&&<Text style={s.hint}>Mostrando inspirações de exemplo enquanto as fotos reais são cadastradas.</Text>}
     {visible.length?visible.map(card):<Text style={s.description}>Nenhum look encontrado.</Text>}
-   </ScrollView>:tab==='Salvos'?<ScrollView contentContainerStyle={s.page}><Text style={s.heading}>Meus salvos</Text><Text style={s.hint}>Os favoritos desta versão são temporários; a sincronização com sua conta será adicionada depois.</Text>{catalog.filter(x=>saved.includes(x.id)).map(card)}{!saved.length&&<Text style={s.description}>Você ainda não salvou nenhum look.</Text>}</ScrollView>
+   </ScrollView>:tab==='Salvos'?<ScrollView contentContainerStyle={s.page}><Text style={s.heading}>Meus salvos</Text><Text style={s.hint}>Seus favoritos ficam vinculados à sua conta MAD Closet.</Text>{savedLoading&&<ActivityIndicator color={DARK}/>}{catalog.filter(x=>saved.includes(x.id)).map(card)}{!saved.length&&<Text style={s.description}>Você ainda não salvou nenhum look.</Text>}</ScrollView>
    :tab==='Perfil'?<ScrollView contentContainerStyle={s.page}><Text style={s.heading}>Meu perfil</Text><Text style={s.description}>{session.user.email}</Text><Text style={s.smallTitle}>MEUS ESTILOS</Text><Text style={s.description}>{preferences.join(' · ')}</Text><Action label="Editar meus estilos" onPress={()=>{setSelected(preferences);setEditing(true);}}/><Action label="Sair da conta" outline onPress={()=>supabase.auth.signOut()}/></ScrollView>
    :<ScrollView contentContainerStyle={s.page}><Text style={s.heading}>Criar look +</Text><Text style={s.description}>Aqui você poderá fotografar ou escolher uma imagem, adicionar as peças e publicar seu look. A publicação ainda está em desenvolvimento.</Text><Action label="Voltar ao feed" onPress={()=>setTab('Início')}/></ScrollView>}
   </View>
