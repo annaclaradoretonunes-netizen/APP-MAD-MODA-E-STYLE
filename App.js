@@ -1,133 +1,132 @@
 import React, {useEffect, useMemo, useState} from 'react';
-import {ActivityIndicator, Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
-import {styles as categories, looks} from './src/looks';
+import {ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
+import {styles as categories, looks as samples} from './src/looks';
 import {supabase} from './src/supabase';
 
-const OPTIONS = categories.filter(x => x !== 'Todos');
-const message = error => Alert.alert('MAD Closet', error?.message || 'Não foi possível concluir. Tente novamente.');
+const PINK='#E8A9BF', DARK='#7A3857', PALE='#FFF1F6';
+const OPTIONS=categories.filter(x=>x!=='Todos');
+const notify=e=>Alert.alert('MAD Closet',e?.message||'Não foi possível concluir a operação.');
+const Action=({label,onPress,outline=false,disabled=false})=><TouchableOpacity onPress={onPress} disabled={disabled} style={[s.action,outline&&s.outline,disabled&&{opacity:.5}]}><Text style={[s.actionText,outline&&{color:DARK}]}>{label}</Text></TouchableOpacity>;
 
-export default function App() {
-  const [session, setSession] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [checking, setChecking] = useState(false);
-  const [mode, setMode] = useState('register');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [selected, setSelected] = useState([]);
-  const [preferences, setPreferences] = useState([]);
-  const [onboarded, setOnboarded] = useState(false);
-  const [category, setCategory] = useState('Todos');
-  const [saved, setSaved] = useState([]);
+export default function App(){
+ const [session,setSession]=useState(null),[boot,setBoot]=useState(true),[busy,setBusy]=useState(false);
+ const [authScreen,setAuthScreen]=useState('welcome'),[email,setEmail]=useState(''),[password,setPassword]=useState('');
+ const [selected,setSelected]=useState([]),[preferences,setPreferences]=useState([]),[prefLoading,setPrefLoading]=useState(true),[editing,setEditing]=useState(false);
+ const [tab,setTab]=useState('Início'),[category,setCategory]=useState('Todos'),[query,setQuery]=useState('');
+ const [dbLooks,setDbLooks]=useState([]),[feedLoading,setFeedLoading]=useState(false),[saved,setSaved]=useState([]);
 
-  useEffect(() => {
-    if (!supabase) { setLoading(false); return; }
-    supabase.auth.getSession().then(({data, error}) => {
-      if (error) message(error);
-      setSession(data?.session || null);
-      setLoading(false);
-    });
-    const {data: {subscription}} = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
-    return () => subscription.unsubscribe();
-  }, []);
+ useEffect(()=>{
+  if(!supabase){setBoot(false);return;}
+  supabase.auth.getSession().then(({data,error})=>{if(error)notify(error);setSession(data?.session||null);setBoot(false);});
+  const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,next)=>setSession(next));
+  return ()=>subscription.unsubscribe();
+ },[]);
 
-  useEffect(() => {
-    if (!session?.user?.id || !supabase) {
-      setOnboarded(false); setPreferences([]); setSelected([]);
-      return;
-    }
-    let active = true;
-    setChecking(true);
-    supabase.from('user_style_preferences').select('aesthetic').eq('user_id', session.user.id)
-      .then(({data, error}) => {
-        if (!active) return;
-        if (error) message(error);
-        const list = (data || []).map(row => row.aesthetic).filter(x => OPTIONS.includes(x));
-        setPreferences(list); setSelected(list); setOnboarded(list.length >= 3);
-        setChecking(false);
-      });
-    return () => { active = false; };
-  }, [session?.user?.id]);
+ useEffect(()=>{
+  if(!session?.user?.id){setPrefLoading(false);setPreferences([]);setSelected([]);setEditing(false);return;}
+  let active=true;setPrefLoading(true);
+  supabase.from('user_style_preferences').select('aesthetic').eq('user_id',session.user.id)
+   .then(({data,error})=>{
+    if(!active)return;
+    if(error)notify(error);
+    const list=(data||[]).map(x=>x.aesthetic).filter(x=>OPTIONS.includes(x));
+    setPreferences(list);setSelected(list);setPrefLoading(false);
+   });
+  return ()=>{active=false;};
+ },[session?.user?.id]);
 
-  const visible = useMemo(() => {
-    const filtered = looks.filter(x => category === 'Todos' || x.style === category);
-    return [...filtered].sort((a,b) => Number(preferences.includes(b.style)) - Number(preferences.includes(a.style)));
-  }, [category, preferences]);
+ useEffect(()=>{
+  if(!session?.user?.id||preferences.length<3)return;
+  let active=true;setFeedLoading(true);
+  supabase.from('looks').select('id,caption,aesthetic,photo_path,published,look_items(item_name,description)').eq('published',true).limit(100)
+   .then(({data,error})=>{
+    if(!active)return;
+    if(error){notify(error);setDbLooks([]);}
+    else setDbLooks((data||[]).map(item=>{
+      const photo=item.photo_path && supabase.storage.from('published-looks').getPublicUrl(item.photo_path).data.publicUrl;
+      return {id:item.id,style:item.aesthetic,title:item.caption||'Inspiração MAD',photo,pieces:(item.look_items||[]).map(p=>p.description||p.item_name)};
+    }));
+    setFeedLoading(false);
+   });
+  return ()=>{active=false;};
+ },[session?.user?.id,preferences.length]);
 
-  async function authenticate() {
-    if (!supabase) return Alert.alert('Configuração', 'Configure o Supabase no app.json.');
-    if (!email.trim() || password.length < 6) return Alert.alert('Verifique seus dados', 'Informe um e-mail e senha com pelo menos 6 caracteres.');
-    setChecking(true);
-    try {
-      const result = mode === 'register'
-        ? await supabase.auth.signUp({email: email.trim(), password})
-        : await supabase.auth.signInWithPassword({email: email.trim(), password});
-      if (result.error) throw result.error;
-      if (mode === 'register' && !result.data.session) {
-        Alert.alert('Confirme seu e-mail', 'Confira sua caixa de entrada e confirme o cadastro. Depois, entre com sua conta.');
-        setMode('login');
-      }
-    } catch (error) { message(error); }
-    finally { setChecking(false); }
-  }
+ async function authenticate(){
+  if(!supabase)return Alert.alert('Configuração','Supabase indisponível.');
+  if(!email.trim()||password.length<6)return Alert.alert('Confira seus dados','Digite seu e-mail e uma senha de pelo menos 6 caracteres.');
+  setBusy(true);
+  try{
+   const {data,error}=authScreen==='register'
+    ?await supabase.auth.signUp({email:email.trim(),password})
+    :await supabase.auth.signInWithPassword({email:email.trim(),password});
+   if(error)throw error;
+   if(authScreen==='register'&&!data.session){
+    Alert.alert('Confirme seu e-mail','Abra o e-mail enviado pelo MAD Closet, confirme sua conta e depois volte para Entrar.');
+    setAuthScreen('login');
+   }
+  }catch(e){notify(e);}finally{setBusy(false);}
+ }
 
-  async function savePreferences() {
-    if (selected.length < 3 || !session?.user?.id) return;
-    setChecking(true);
-    try {
-      const userId = session.user.id;
-      const {error: removeError} = await supabase.from('user_style_preferences').delete().eq('user_id', userId);
-      if (removeError) throw removeError;
-      const {error} = await supabase.from('user_style_preferences').insert(selected.map(aesthetic => ({user_id: userId, aesthetic})));
-      if (error) throw error;
-      setPreferences(selected); setOnboarded(true); setCategory('Todos');
-    } catch (error) { message(error); }
-    finally { setChecking(false); }
-  }
+ async function saveStyles(){
+  if(selected.length<3||!session?.user?.id)return;
+  setBusy(true);
+  try{
+   const id=session.user.id;
+   const {error:remove}=await supabase.from('user_style_preferences').delete().eq('user_id',id);
+   if(remove)throw remove;
+   const {error:insert}=await supabase.from('user_style_preferences').insert(selected.map(aesthetic=>({user_id:id,aesthetic})));
+   if(insert)throw insert;
+   setPreferences([...selected]);setEditing(false);setTab('Início');
+  }catch(e){notify(e);}finally{setBusy(false);}
+ }
+ const toggleStyle=name=>setSelected(old=>old.includes(name)?old.filter(x=>x!==name):[...old,name]);
+ const catalog=dbLooks.length?dbLooks:samples;
+ const visible=useMemo(()=>catalog.filter(x=>(category==='Todos'||x.style===category)&&(!query||((x.title||'')+' '+x.style+' '+(x.pieces||[]).join(' ')).toLowerCase().includes(query.toLowerCase()))).sort((a,b)=>Number(preferences.includes(b.style))-Number(preferences.includes(a.style))),[catalog,category,query,preferences]);
+ const toggleSaved=id=>setSaved(old=>old.includes(id)?old.filter(x=>x!==id):[...old,id]);
+ const card=item=><View key={item.id} style={s.card}>
+  {item.photo?<Image source={{uri:item.photo}} style={s.photo} resizeMode="contain"/>:<View style={[s.photo,s.emptyPhoto]}><Text style={s.placeholder}>Fotografia do look completo\n{item.title}\n\nImagem ainda não cadastrada</Text></View>}
+  <View style={s.cardBody}><Text style={s.kicker}>{(item.style||'ESTILO').toUpperCase()}</Text><Text style={s.cardTitle}>{item.title}</Text><Text style={s.smallTitle}>PEÇAS DO LOOK</Text>{(item.pieces||[]).map((piece,i)=><Text key={i} style={s.piece}>• {piece}</Text>)}
+  <TouchableOpacity style={s.save} onPress={()=>toggleSaved(item.id)}><Text style={s.saveText}>{saved.includes(item.id)?'♥ Salvo nesta sessão':'♡ Salvar inspiração'}</Text></TouchableOpacity></View>
+ </View>;
 
-  const toggleStyle = name => setSelected(current => current.includes(name) ? current.filter(x => x !== name) : [...current, name]);
-  const toggleSaved = id => {
-    if (!session) return Alert.alert('Entre na sua conta', 'Crie uma conta ou faça login para salvar inspirações.');
-    setSaved(old => old.includes(id) ? old.filter(x => x !== id) : [...old, id]);
-  };
+ if(boot||session&&prefLoading)return <SafeAreaView style={s.root}><ActivityIndicator style={{marginTop:100}} color={DARK}/></SafeAreaView>;
+ if(!session)return <SafeAreaView style={s.root}><StatusBar barStyle="dark-content"/><KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
+  <ScrollView contentContainerStyle={s.authWrap} keyboardShouldPersistTaps="handled">
+   <View style={s.cover}><Text style={s.coverBrand}>MAD</Text><Text style={s.coverSub}>CLOSET</Text><Text style={s.slogan}>BE YOUR OWN MUSE.</Text><Text style={s.coverNote}>Sua capa original será exibida aqui assim que o arquivo for incorporado ao projeto.</Text></View>
+   {authScreen==='welcome'?<View style={s.authButtons}><Action label="Entrar" onPress={()=>setAuthScreen('login')}/><Action label="Criar conta" outline onPress={()=>setAuthScreen('register')}/></View>:<View style={s.authPanel}>
+    <Text style={s.heading}>{authScreen==='login'?'Entre na sua conta':'Crie sua conta'}</Text>
+    <TextInput style={s.input} autoCapitalize="none" autoComplete="email" keyboardType="email-address" placeholder="E-mail" value={email} onChangeText={setEmail}/>
+    <TextInput style={s.input} secureTextEntry placeholder="Senha" value={password} onChangeText={setPassword}/>
+    <Action label={busy?'Aguarde...':authScreen==='login'?'Entrar':'Cadastrar'} onPress={authenticate} disabled={busy}/>
+    <TouchableOpacity style={s.textButton} onPress={()=>setAuthScreen(authScreen==='login'?'register':'login')}><Text style={s.link}>{authScreen==='login'?'Ainda não tenho conta':'Já tenho uma conta'}</Text></TouchableOpacity>
+    <TouchableOpacity style={s.textButton} onPress={()=>setAuthScreen('welcome')}><Text style={s.link}>Voltar à capa</Text></TouchableOpacity>
+   </View>}
+  </ScrollView>
+ </KeyboardAvoidingView></SafeAreaView>;
 
-  if (loading || (session && checking && !onboarded && !selected.length)) return <SafeAreaView style={s.screen}><ActivityIndicator style={{marginTop:90}} color="#61493E"/></SafeAreaView>;
+ if(preferences.length<3||editing)return <SafeAreaView style={s.root}><StatusBar barStyle="dark-content"/><ScrollView contentContainerStyle={s.page}>
+  <Text style={s.brand}>MAD <Text style={{color:PINK}}>CLOSET</Text></Text><Text style={s.heading}>Escolha seus estilos</Text><Text style={s.description}>Selecione pelo menos 3 estilos para personalizar seu feed.</Text><Text style={s.counter}>{selected.length} selecionado(s) · mínimo 3</Text>
+  <View style={s.styleGrid}>{OPTIONS.map(name=><TouchableOpacity key={name} onPress={()=>toggleStyle(name)} style={[s.styleOption,selected.includes(name)&&s.styleActive]}><Text style={[s.styleText,selected.includes(name)&&{color:'white'}]}>{selected.includes(name)?'✓  ':'+  '}{name}</Text></TouchableOpacity>)}</View>
+  <Action label={busy?'Salvando...':'Continuar para o feed'} disabled={selected.length<3||busy} onPress={saveStyles}/>
+  {editing&&<Action outline label="Cancelar" onPress={()=>{setSelected(preferences);setEditing(false);}}/>}
+ </ScrollView></SafeAreaView>;
 
-  return <SafeAreaView style={s.screen}>
-    <StatusBar barStyle="dark-content"/>
-    <View style={s.header}><Text style={s.brand}>MAD</Text><Text style={s.sub}>CLOSET · SEU ESTILO, SUAS ESCOLHAS</Text></View>
-    {session && !onboarded ? <ScrollView contentContainerStyle={s.content}>
-      <Text style={s.heading}>Qual é o seu estilo?</Text>
-      <Text style={s.intro}>Escolha pelo menos 3 estilos. Vamos usar suas escolhas para organizar seu feed.</Text>
-      <Text style={s.counter}>{selected.length} selecionado(s) · mínimo de 3</Text>
-      <View style={s.optionGrid}>{OPTIONS.map(name => <TouchableOpacity key={name} accessibilityRole="checkbox" accessibilityState={{checked:selected.includes(name)}} onPress={() => toggleStyle(name)} style={[s.option, selected.includes(name) && s.optionSelected]}><Text style={[s.optionText,selected.includes(name)&&s.optionTextSelected]}>{selected.includes(name) ? '✓  ' : '+  '}{name}</Text></TouchableOpacity>)}</View>
-      <TouchableOpacity disabled={selected.length < 3 || checking} onPress={savePreferences} style={[s.primary, (selected.length < 3 || checking) && s.disabled]}><Text style={s.primaryText}>{checking ? 'Salvando...' : 'Criar meu feed'}</Text></TouchableOpacity>
-      <TouchableOpacity onPress={() => supabase.auth.signOut()} style={s.secondary}><Text>Sair da conta</Text></TouchableOpacity>
-    </ScrollView> : <ScrollView contentContainerStyle={s.content}>
-      {!session ? <View style={s.authBox}>
-        <Text style={s.authTitle}>{mode === 'register' ? 'Crie seu perfil' : 'Entre no MAD Closet'}</Text>
-        <Text style={s.intro}>Explore as inspirações sem login ou crie uma conta para escolher seus estilos.</Text>
-        <TextInput autoCapitalize="none" keyboardType="email-address" placeholder="Seu e-mail" value={email} onChangeText={setEmail} style={s.input}/>
-        <TextInput placeholder="Sua senha" secureTextEntry value={password} onChangeText={setPassword} style={s.input}/>
-        <TouchableOpacity disabled={checking} style={s.primary} onPress={authenticate}><Text style={s.primaryText}>{checking ? 'Aguarde...' : mode === 'register' ? 'Cadastrar' : 'Entrar'}</Text></TouchableOpacity>
-        <TouchableOpacity onPress={() => setMode(mode === 'register' ? 'login' : 'register')} style={s.secondary}><Text>{mode === 'register' ? 'Já tenho conta' : 'Criar uma conta'}</Text></TouchableOpacity>
-      </View> : <View style={s.profileRow}><Text style={s.welcome}>Seu feed personalizado</Text><TouchableOpacity onPress={() => {setSelected(preferences); setOnboarded(false);}}><Text style={s.link}>Editar estilos</Text></TouchableOpacity><TouchableOpacity onPress={() => supabase.auth.signOut()}><Text style={s.link}>Sair</Text></TouchableOpacity></View>}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.filters}>{categories.map(c => <TouchableOpacity key={c} onPress={() => setCategory(c)} style={[s.chip, c === category && s.active]}><Text style={[s.chipText, c === category && s.activeText]}>{c}</Text></TouchableOpacity>)}</ScrollView>
-      <Text style={s.heading}>{category === 'Todos' ? 'Descubra seu estilo' : category}</Text>
-      <Text style={s.intro}>{session ? 'Looks dos seus estilos favoritos aparecem primeiro.' : 'Explore looks e descubra suas inspirações.'}</Text>
-      {visible.map(item => <View key={item.id} style={s.card}>
-        <View style={s.photo}><Text style={s.photoText}>Fotografia original do look\n{item.title}\n\nAguardando inclusão das imagens</Text></View>
-        <View style={s.cardBody}><Text style={s.style}>{item.style.toUpperCase()}</Text><Text style={s.title}>{item.title}</Text><Text style={s.label}>PEÇAS DO LOOK</Text>{item.pieces.map((piece,i) => <Text key={i} style={s.piece}>• {piece}</Text>)}
-        <TouchableOpacity onPress={() => toggleSaved(item.id)} style={s.save}><Text style={s.saveText}>{saved.includes(item.id) ? '♥ Salvo nesta sessão' : '♡ Salvar inspiração'}</Text></TouchableOpacity></View>
-      </View>)}
-    </ScrollView>}
-  </SafeAreaView>;
+ return <SafeAreaView style={s.root}><StatusBar barStyle="dark-content"/><View style={s.top}><Text style={s.brand}>MAD <Text style={{color:PINK}}>CLOSET</Text></Text><Text style={s.sloganSmall}>BE YOUR OWN MUSE.</Text></View>
+  <View style={{flex:1}}>
+   {tab==='Início'||tab==='Pesquisar'?<ScrollView contentContainerStyle={s.page} keyboardShouldPersistTaps="handled">
+    <Text style={s.heading}>{tab==='Início'?'Seu feed, seu estilo':'Pesquisar looks'}</Text>
+    {tab==='Pesquisar'&&<TextInput style={s.input} placeholder="Pesquise por estilo ou peça..." value={query} onChangeText={setQuery}/>}
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flexGrow:0,marginVertical:16}}>{categories.map(c=><TouchableOpacity key={c} onPress={()=>setCategory(c)} style={[s.chip,category===c&&s.chipActive]}><Text style={[s.chipText,category===c&&{color:'white'}]}>{c}</Text></TouchableOpacity>)}</ScrollView>
+    {feedLoading&&<ActivityIndicator color={DARK}/>}
+    {dbLooks.length===0&&<Text style={s.hint}>Mostrando inspirações de exemplo enquanto as fotos reais são cadastradas.</Text>}
+    {visible.length?visible.map(card):<Text style={s.description}>Nenhum look encontrado.</Text>}
+   </ScrollView>:tab==='Salvos'?<ScrollView contentContainerStyle={s.page}><Text style={s.heading}>Meus salvos</Text><Text style={s.hint}>Os favoritos desta versão são temporários; a sincronização com sua conta será adicionada depois.</Text>{catalog.filter(x=>saved.includes(x.id)).map(card)}{!saved.length&&<Text style={s.description}>Você ainda não salvou nenhum look.</Text>}</ScrollView>
+   :tab==='Perfil'?<ScrollView contentContainerStyle={s.page}><Text style={s.heading}>Meu perfil</Text><Text style={s.description}>{session.user.email}</Text><Text style={s.smallTitle}>MEUS ESTILOS</Text><Text style={s.description}>{preferences.join(' · ')}</Text><Action label="Editar meus estilos" onPress={()=>{setSelected(preferences);setEditing(true);}}/><Action label="Sair da conta" outline onPress={()=>supabase.auth.signOut()}/></ScrollView>
+   :<ScrollView contentContainerStyle={s.page}><Text style={s.heading}>Criar look +</Text><Text style={s.description}>Aqui você poderá fotografar ou escolher uma imagem, adicionar as peças e publicar seu look. A publicação ainda está em desenvolvimento.</Text><Action label="Voltar ao feed" onPress={()=>setTab('Início')}/></ScrollView>}
+  </View>
+  <View style={s.bottom}>{[['Início','⌂'],['Pesquisar','⌕'],['Criar look','+'],['Salvos','♡'],['Perfil','♙']].map(([name,symbol])=><TouchableOpacity key={name} accessibilityLabel={name} onPress={()=>{setTab(name);setQuery('');setCategory('Todos');}} style={s.navItem}><View style={[s.navIcon,name==='Criar look'&&s.plus,name===tab&&name!=='Criar look'&&s.navSelected]}><Text style={[s.navSymbol,name==='Criar look'&&{color:'white',fontSize:30}]}>{symbol}</Text></View><Text style={[s.navLabel,tab===name&&{color:DARK,fontWeight:'700'}]}>{name}</Text></TouchableOpacity>)}</View>
+ </SafeAreaView>;
 }
-const s = StyleSheet.create({
- screen:{flex:1,backgroundColor:'#F8F5F0'},header:{paddingTop:14,paddingBottom:12,alignItems:'center'},brand:{fontSize:35,fontWeight:'700',letterSpacing:8,color:'#382B2A'},sub:{fontSize:9,letterSpacing:3,color:'#806F68'},
- content:{padding:18,paddingBottom:65},heading:{fontSize:26,fontWeight:'600',color:'#332721',marginTop:12},intro:{fontSize:13,color:'#786960',marginTop:8,marginBottom:18,lineHeight:20},counter:{color:'#806F68',marginBottom:15},
- optionGrid:{flexDirection:'row',flexWrap:'wrap',gap:10},option:{borderWidth:1,borderColor:'#D7C8BA',borderRadius:14,padding:16,backgroundColor:'white',minWidth:'45%'},optionSelected:{backgroundColor:'#44352F',borderColor:'#44352F'},optionText:{color:'#44352F',fontWeight:'600'},optionTextSelected:{color:'white'},
- primary:{backgroundColor:'#44352F',padding:15,borderRadius:12,alignItems:'center',marginTop:18},disabled:{opacity:.45},primaryText:{color:'white',fontWeight:'700'},secondary:{padding:14,alignItems:'center'},input:{backgroundColor:'white',borderWidth:1,borderColor:'#D7C8BA',borderRadius:12,padding:13,marginTop:10},
- authBox:{backgroundColor:'#F1EAE2',padding:17,borderRadius:16,marginBottom:20},authTitle:{fontSize:21,fontWeight:'600',color:'#332721'},profileRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10,marginBottom:12},welcome:{fontWeight:'700',color:'#44352F'},link:{color:'#8C6259',fontSize:12},
- filters:{flexGrow:0,marginBottom:12},chip:{paddingHorizontal:15,paddingVertical:10,borderRadius:20,backgroundColor:'#EAE2D9',marginRight:8},active:{backgroundColor:'#44352F'},chipText:{fontSize:12,color:'#4A3933'},activeText:{color:'white'},
- card:{backgroundColor:'white',borderRadius:18,overflow:'hidden',marginBottom:24},photo:{height:280,backgroundColor:'#E5DBD0',justifyContent:'center',alignItems:'center',padding:30},photoText:{textAlign:'center',color:'#76685D',lineHeight:24},cardBody:{padding:18},style:{fontSize:10,letterSpacing:2,color:'#9A766B'},title:{fontSize:21,fontWeight:'600',marginTop:5,marginBottom:16,color:'#332721'},label:{fontSize:11,letterSpacing:1.5,fontWeight:'700',marginBottom:8,color:'#6C564C'},piece:{fontSize:14,color:'#554943',marginBottom:7},save:{marginTop:12,borderWidth:1,borderColor:'#C9B9AB',padding:12,borderRadius:12,alignItems:'center'},saveText:{color:'#6E4F49',fontWeight:'600'}
+const s=StyleSheet.create({
+ root:{flex:1,backgroundColor:'#FFFFFF'},authWrap:{flexGrow:1,padding:20,justifyContent:'center'},cover:{minHeight:360,backgroundColor:PALE,borderRadius:22,alignItems:'center',justifyContent:'center',padding:24,borderWidth:1,borderColor:'#F4D5E1'},coverBrand:{fontSize:72,fontWeight:'700',letterSpacing:11,color:DARK},coverSub:{fontSize:17,letterSpacing:10,color:DARK},slogan:{fontSize:12,letterSpacing:3,color:DARK,marginTop:24},coverNote:{fontSize:11,color:'#AA7A90',textAlign:'center',marginTop:38},authButtons:{marginTop:12},authPanel:{paddingTop:22},heading:{fontSize:26,color:DARK,fontWeight:'700',marginVertical:12},input:{backgroundColor:PALE,borderWidth:1,borderColor:'#F3D4E0',borderRadius:14,padding:15,marginBottom:12,fontSize:15},action:{backgroundColor:DARK,padding:16,borderRadius:14,alignItems:'center',marginTop:10},outline:{backgroundColor:'white',borderWidth:1,borderColor:DARK},actionText:{color:'white',fontWeight:'700',fontSize:15},textButton:{padding:12,alignItems:'center'},link:{color:DARK},brand:{fontSize:26,color:DARK,fontWeight:'800',letterSpacing:3},sloganSmall:{color:'#B77793',letterSpacing:2,fontSize:9,marginTop:2},top:{paddingHorizontal:20,paddingTop:10,paddingBottom:12,borderBottomWidth:1,borderBottomColor:'#F9E7EE'},page:{padding:20,paddingBottom:34},description:{color:'#896E7B',fontSize:14,lineHeight:21,marginBottom:16},counter:{color:DARK,fontWeight:'700',marginBottom:16},styleGrid:{flexDirection:'row',flexWrap:'wrap',gap:10,marginBottom:20},styleOption:{padding:17,backgroundColor:PALE,borderRadius:16,minWidth:'46%',borderWidth:1,borderColor:'#F3D4E0'},styleActive:{backgroundColor:DARK,borderColor:DARK},styleText:{color:DARK,fontWeight:'600'},chip:{backgroundColor:PALE,paddingVertical:10,paddingHorizontal:16,borderRadius:24,marginRight:8},chipActive:{backgroundColor:DARK},chipText:{color:DARK,fontWeight:'600'},hint:{color:'#A0788B',fontSize:12,marginBottom:18,lineHeight:18},card:{borderRadius:20,backgroundColor:'white',borderWidth:1,borderColor:'#F8E3EB',overflow:'hidden',marginBottom:20},photo:{height:330,width:'100%',backgroundColor:PALE},emptyPhoto:{justifyContent:'center',alignItems:'center',padding:25},placeholder:{textAlign:'center',color:'#AB7890',lineHeight:24},cardBody:{padding:18},kicker:{color:'#B76D90',fontSize:11,letterSpacing:2,fontWeight:'700'},cardTitle:{fontSize:21,fontWeight:'700',color:DARK,marginTop:6,marginBottom:14},smallTitle:{fontSize:11,letterSpacing:1.5,fontWeight:'700',color:DARK,marginBottom:10},piece:{fontSize:14,color:'#745C69',marginBottom:7},save:{marginTop:12,borderRadius:12,borderWidth:1,borderColor:'#E8B4C8',padding:13,alignItems:'center'},saveText:{color:DARK,fontWeight:'700'},bottom:{flexDirection:'row',justifyContent:'space-around',alignItems:'center',backgroundColor:'white',borderTopWidth:1,borderTopColor:'#F3D4E0',paddingTop:10,paddingBottom:Platform.OS==='ios'?18:16,paddingHorizontal:4},navItem:{flex:1,alignItems:'center',justifyContent:'center',minHeight:55},navIcon:{width:39,height:34,alignItems:'center',justifyContent:'center',borderRadius:16},navSelected:{backgroundColor:PALE},plus:{width:51,height:51,borderRadius:26,backgroundColor:DARK,marginTop:-17},navSymbol:{fontSize:25,color:DARK},navLabel:{fontSize:10,color:'#946F81',marginTop:2,textAlign:'center'}
 });
