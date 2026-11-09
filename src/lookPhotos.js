@@ -211,7 +211,21 @@ const metadata = {
       "bolsa xadrez clara",
       "sandálias rosa com laços"
     ]
-  }
+  },
+  "WhatsApp Image 2026-11-05 at 17.42.44 (1).jpeg": {"title":"Renda e Botas","style":"Boho","pieces":["Vestido longo de renda creme com amarração","Botas altas de couro marrom","Bolsa marrom com franjas","Colares dourados"]},
+  "WhatsApp Image 2026-11-05 at 17.42.44 (2).jpeg": {"title":"Xadrez Noturno","style":"Dark Academia","pieces":["Blusa xadrez com mangas bufantes","Saia preta plissada com cinto","Meia-calça preta floral","Sapatos pretos plataforma","Boina e bolsa escura"]},
+  "WhatsApp Image 2026-11-05 at 17.42.44.jpeg": {"title":"Verde Oliva","style":"Boho","pieces":["Blusa marrom frente única com amarração","Saia longa verde oliva em camadas","Cinto largo marrom","Bolsa verde estampada","Sandálias marrons"]},
+  "WhatsApp Image 2026-11-05 at 17.42.45 (1).jpeg": {"title":"Biblioteca à Noite","style":"Dark Academia","pieces":["Blusa preta de gola alta","Minissaia xadrez","Cinto largo marrom","Meia-calça preta","Botas pretas de cano alto","Bolsa marrom"]},
+  "WhatsApp Image 2026-11-05 at 17.42.45 (2).jpeg": {"title":"Campus Vintage","style":"Dark Academia","pieces":["Casaco marrom","Blusa creme com detalhe de renda","Saia curta xadrez","Meia-calça escura","Meias claras","Botas marrons e bolsa de ombro"]},
+  "WhatsApp Image 2026-11-05 at 17.42.45 (3).jpeg": {"title":"Silver Denim","style":"Y2K","pieces":["Blusa branca drapeada","Shorts jeans escuros","Cinto preto com tachas","Bolsa prateada","Botas pretas felpudas"]},
+  "WhatsApp Image 2026-11-05 at 17.42.45 (4).jpeg": {"title":"Leather Star","style":"Grunge","pieces":["Jaqueta preta de couro oversized","Blusa preta cropped","Shorts jeans pretos estampados","Cinto preto","Botas pretas de cano alto"]},
+  "WhatsApp Image 2026-11-05 at 17.42.45.jpeg": {"title":"Biblioteca Vintage","style":"Dark Academia","pieces":["Camisa creme com mangas bufantes","Colete marrom","Saia midi plissada xadrez","Meias claras","Sapatos Oxford marrons","Bolsa marrom"]},
+  "WhatsApp Image 2026-11-05 at 17.42.46 (1).jpeg": {"title":"Midnight Fur","style":"Grunge","pieces":["Casaco preto felpudo com capuz","Blusa preta estampada","Minissaia preta com tachas","Bolsa preta com aplicações","Botas pretas com tachas"]},
+  "WhatsApp Image 2026-11-05 at 17.42.46 (2).jpeg": {"title":"Black Lace","style":"Gothic","pieces":["Blusa preta com botões","Saia preta de babados","Cintos com ilhoses","Meia-calça rendada floral","Botas pretas com fivelas","Bolsa preta"]},
+  "WhatsApp Image 2026-11-05 at 17.42.46.jpeg": {"title":"Studded Rebel","style":"Y2K","pieces":["Top preto com aplicações metálicas","Shorts jeans escuros com cinto","Boné preto com estampa de caveira","Bolsa preta","Tênis pretos robustos"]},
+  "WhatsApp Image 2026-11-05 at 17.42.47 (1).jpeg": {"title":"Floral Blush","style":"Coquette","pieces":["Blusa creme com estampa floral rosa e mangas delicadas","Saia longa rosa-claro","Bolsa clara de ombro","Sandálias rosa com laços","Acessório de cabelo rosa"]},
+  "WhatsApp Image 2026-11-05 at 17.42.47 (2).jpeg": {"title":"Polka Dot Romance","style":"Coquette","pieces":["Vestido rosa de bolinhas com mangas bufantes","Laços pretos","Meias claras até o joelho","Sapatos Mary Jane pretos","Bolsa rosa"]},
+  "WhatsApp Image 2026-11-05 at 17.42.47.jpeg": {"title":"Parisian Dots","style":"Coquette","pieces":["Blusa rosa com sobreposição branca de bolinhas e amarração","Minissaia branca de bolinhas","Bolsa rosa","Sandálias brancas com laços"]}
 };
 const photos = require.context('../assets/looks', false, /\.(jpe?g|png)$/i);
 export const localLooks = photos.keys().sort().map((key, index) => {
