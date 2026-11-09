@@ -1,5 +1,5 @@
 // Catálogo editorial inicial. As imagens originais serão associadas depois de serem adicionadas ao projeto.
-export const styles = ['Todos','Dark Academia','Coquette','Boho','Y2K','Streetwear','Sporty','Western'];
+export const styles = ['Todos','Dark Academia','Coquette','Boho','Y2K','Streetwear','Sporty','Western','Grunge','Gothic'];
 export const looks = [
   {id:'academia-01',style:'Dark Academia',title:'Biblioteca vintage',pieces:['Blusa creme com mangas bufantes','Colete marrom','Saia midi plissada xadrez','Meias claras','Mocassins marrons','Bolsa de ombro marrom']},
   {id:'academia-02',style:'Dark Academia',title:'Xadrez e preto',pieces:['Blusa xadrez de mangas bufantes','Minissaia escura plissada','Meia-calça floral','Sapatos pretos de plataforma','Boina escura','Bolsa marrom']},
