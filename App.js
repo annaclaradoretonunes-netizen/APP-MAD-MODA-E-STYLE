@@ -151,7 +151,7 @@ export default function App(){
  if(boot||session&&prefLoading)return <SafeAreaView style={s.root}><ActivityIndicator style={{marginTop:100}} color={DARK}/></SafeAreaView>;
  if(!session)return <SafeAreaView style={s.root}><StatusBar barStyle="light-content" translucent backgroundColor="transparent"/><KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
   {authScreen==='welcome'?<View style={s.welcomeScreen}>
-   <Image source={COVER_IMAGE} resizeMode="cover" style={s.fullCover}/>
+   <Image source={COVER_IMAGE} resizeMode="stretch" style={s.fullCover}/>
    <View style={s.welcomeButtons}><Action label="Entrar" onPress={()=>setAuthScreen('login')}/><Action label="Criar conta" outline onPress={()=>setAuthScreen('register')}/></View>
   </View>:<ScrollView ref={authScroll} keyboardShouldPersistTaps="handled" contentContainerStyle={s.loginScreen}>
    <Image source={COVER_IMAGE} style={s.loginImage} resizeMode="cover"/>
@@ -161,7 +161,7 @@ export default function App(){
     <TextInput style={s.input} secureTextEntry placeholder="Senha" onFocus={()=>authScroll.current?.scrollToEnd({animated:true})} value={password} onChangeText={setPassword}/>
     <Action label={busy?'Aguarde...':authScreen==='login'?'Entrar':'Cadastrar'} onPress={authenticate} disabled={busy}/>
     <TouchableOpacity style={s.textButton} onPress={()=>setAuthScreen(authScreen==='login'?'register':'login')}><Text style={s.link}>{authScreen==='login'?'Ainda não tenho conta':'Já tenho uma conta'}</Text></TouchableOpacity>
-    <TouchableOpacity style={s.textButton} onPress={()=>setAuthScreen('welcome')}><Text style={s.link}>Voltar à capa</Text></TouchableOpacity>
+    <TouchableOpacity style={s.textButton} onPress={()=>setAuthScreen('welcome')}><Text style={s.link}>Voltar ao início</Text></TouchableOpacity>
    </View>
   </ScrollView>}
  </KeyboardAvoidingView></SafeAreaView>;
